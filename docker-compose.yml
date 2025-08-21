@@ -57,7 +57,7 @@ services:
     networks:
       - metaploy-network
     environment:
-      - EMAIL=your-email@example.com
+      - EMAIL=devanshg308@gmail.com
     entrypoint: ["/entrypoint.sh"]
     profiles: ["https"]
 
