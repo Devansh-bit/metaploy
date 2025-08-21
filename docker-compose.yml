@@ -5,16 +5,29 @@ services:
         build: ./nginx
         restart: always
         networks:
-            metaploy-network:
+            - metaploy-network
         volumes:
             - nginx-config-volume:/etc/nginx/sites-enabled/
+            - metaploy-cert-conf:/etc/letsencrypt
+            - metaploy-cert-www:/var/www/certbot
         ports:
-            - "${SERVER_PORT:-8080}:80"
+            - "${SERVER_PORT:-80}:80"
+            - "${SERVER_HTTPS_PORT:-443}:443"
         logging:
             driver: "json-file"
             options:
                 max-size: "100m"
                 max-file: "3"
+    
+    certbot:
+        image: certbot/certbot
+        volumes:
+            - metaploy-cert-conf:/etc/letsencrypt
+            - metaploy-cert-www:/var/www/certbot
+        networks:
+            - metaploy-network
+        entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $!; done;'"
+        profiles: ["https"]
 
 networks:
     metaploy-network:
@@ -25,3 +38,8 @@ networks:
 volumes:
     nginx-config-volume:
         name: metaploy-nginx-config-volume
+    metaploy-cert-conf:
+        name: metaploy-cert-conf
+    metaploy-cert-www:
+        name: metaploy-cert-www
+    
