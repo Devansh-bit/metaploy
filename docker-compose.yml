@@ -1,45 +1,80 @@
 services:
-    nginx:
-        image: metakgporg/metaploy
-        container_name: metaploy
-        build: ./nginx
-        restart: always
-        networks:
-            - metaploy-network
-        volumes:
-            - nginx-config-volume:/etc/nginx/sites-enabled/
-            - metaploy-cert-conf:/etc/letsencrypt
-            - metaploy-cert-www:/var/www/certbot
-        ports:
-            - "${SERVER_PORT:-80}:80"
-            - "${SERVER_HTTPS_PORT:-443}:443"
-        logging:
-            driver: "json-file"
-            options:
-                max-size: "100m"
-                max-file: "3"
-    
-    certbot:
-        image: certbot/certbot
-        volumes:
-            - metaploy-cert-conf:/etc/letsencrypt
-            - metaploy-cert-www:/var/www/certbot
-        networks:
-            - metaploy-network
-        entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $$!; done;'"
-        profiles: ["https"]
+  nginx:
+    image: metakgporg/metaploy
+    container_name: metaploy
+    build: ./nginx
+    restart: always
+    networks:
+      - metaploy-network
+    volumes:
+      - nginx-config-volume:/etc/nginx/sites-enabled/
+      - metaploy-cert-conf:/etc/letsencrypt
+      - metaploy-cert-www:/var/www/certbot
+    ports:
+      - "${SERVER_PORT:-80}:80"
+      - "${SERVER_HTTPS_PORT:-443}:443"
+    environment:
+      - METAPLOY_HTTPS_ENABLED=false
+    profiles: ["http"]
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+  nginx-https:
+    image: metakgporg/metaploy
+    container_name: metaploy
+    build: ./nginx
+    restart: always
+    networks:
+      - metaploy-network
+    volumes:
+      - nginx-config-volume:/etc/nginx/sites-enabled/
+      - nginx-https-config-volume:/etc/nginx/https-enabled/
+      - metaploy-cert-conf:/etc/letsencrypt
+      - metaploy-cert-www:/var/www/certbot
+    ports:
+      - "${SERVER_PORT:-80}:80"
+      - "${SERVER_HTTPS_PORT:-443}:443"
+    environment:
+      - METAPLOY_HTTPS_ENABLED=true
+    profiles: ["https"]
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+  certbot:
+    image: certbot/certbot
+    container_name: metaploy-certbot
+    volumes:
+      - metaploy-cert-conf:/etc/letsencrypt
+      - metaploy-cert-www:/var/www/certbot
+      - nginx-https-config-volume:/etc/nginx/https-enabled/
+      - ./certbot-entrypoint.sh:/entrypoint.sh:ro
+    networks:
+      - metaploy-network
+    environment:
+      - EMAIL=your-email@example.com
+    entrypoint: ["/entrypoint.sh"]
+    profiles: ["https"]
 
 networks:
-    metaploy-network:
-        name: metaploy-network
-    metaploy-private-network:
-        name: metaploy-private-network
+  metaploy-network:
+    name: metaploy-network
+    external: true
+  metaploy-private-network:
+    name: metaploy-private-network
+    external: true
 
 volumes:
-    nginx-config-volume:
-        name: metaploy-nginx-config-volume
-    metaploy-cert-conf:
-        name: metaploy-cert-conf
-    metaploy-cert-www:
-        name: metaploy-cert-www
-    
+  nginx-config-volume:
+    name: metaploy-nginx-config-volume
+  nginx-https-config-volume:
+    name: metaploy-nginx-https-config-volume
+  metaploy-cert-conf:
+    name: metaploy-cert-conf
+  metaploy-cert-www:
+    name: metaploy-cert-www
